@@ -1,0 +1,35 @@
+# Alembic Migrations
+
+This directory contains Alembic migration files for the AI First CRM HCP Module database.
+
+## Running Migrations
+
+### Create a new migration
+```bash
+cd backend
+alembic revision --autogenerate -m "description of migration"
+```
+
+### Apply migrations
+```bash
+cd backend
+alembic upgrade head
+```
+
+### Rollback migrations
+```bash
+cd backend
+alembic downgrade -1
+```
+
+### View migration history
+```bash
+cd backend
+alembic history
+```
+
+### View current version
+```bash
+cd backend
+alembic current
+```
