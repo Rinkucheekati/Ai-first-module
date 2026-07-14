@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -12,12 +12,14 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
   IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  CircularProgress,
+  Alert,
+  Fade,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -25,95 +27,49 @@ import {
   Visibility as VisibilityIcon,
   Edit as EditIcon,
 } from '@mui/icons-material';
-
-interface HCP {
-  id: string;
-  name: string;
-  specialty: string;
-  organization: string;
-  email: string;
-  phone: string;
-  city: string;
-  status: 'active' | 'inactive';
-  lastInteraction: string;
-  totalInteractions: number;
-}
+import { useNotification } from '../components/common/NotificationProvider';
+import { hcpApi, HCP } from '../services/hcpApi';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const HCPList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedHCP, setSelectedHCP] = useState<HCP | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [hcpList, setHcpList] = useState<HCP[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const notification = useNotification();
 
-  const mockHCPs: HCP[] = [
-    {
-      id: '1',
-      name: 'Dr. Sarah Johnson',
-      specialty: 'Cardiology',
-      organization: 'City Hospital',
-      email: 'sarah.johnson@cityhospital.com',
-      phone: '+1 555-0101',
-      city: 'New York',
-      status: 'active',
-      lastInteraction: '2024-01-15',
-      totalInteractions: 12,
-    },
-    {
-      id: '2',
-      name: 'Dr. Michael Chen',
-      specialty: 'Neurology',
-      organization: 'Medical Center',
-      email: 'michael.chen@medicalcenter.com',
-      phone: '+1 555-0102',
-      city: 'Los Angeles',
-      status: 'active',
-      lastInteraction: '2024-01-10',
-      totalInteractions: 8,
-    },
-    {
-      id: '3',
-      name: 'Dr. Emily Davis',
-      specialty: 'Oncology',
-      organization: 'Cancer Institute',
-      email: 'emily.davis@cancerinstitute.com',
-      phone: '+1 555-0103',
-      city: 'Chicago',
-      status: 'inactive',
-      lastInteraction: '2023-12-20',
-      totalInteractions: 5,
-    },
-    {
-      id: '4',
-      name: 'Dr. James Wilson',
-      specialty: 'Pediatrics',
-      organization: 'Children Hospital',
-      email: 'james.wilson@childrenhospital.com',
-      phone: '+1 555-0104',
-      city: 'Houston',
-      status: 'active',
-      lastInteraction: '2024-01-12',
-      totalInteractions: 15,
-    },
-    {
-      id: '5',
-      name: 'Dr. Lisa Anderson',
-      specialty: 'Dermatology',
-      organization: 'Skin Care Clinic',
-      email: 'lisa.anderson@skincareclinic.com',
-      phone: '+1 555-0105',
-      city: 'Phoenix',
-      status: 'active',
-      lastInteraction: '2024-01-08',
-      totalInteractions: 7,
-    },
-  ];
+  // Fetch HCPs on component mount
+  useEffect(() => {
+    fetchHCPs();
+  }, []);
 
-  const filteredHCPs = mockHCPs.filter(
-    (hcp) =>
-      hcp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      hcp.specialty.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      hcp.organization.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      hcp.city.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const fetchHCPs = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await hcpApi.getHCPs(0, 100, searchTerm || undefined);
+      setHcpList(data.hcps || []);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load HCPs';
+      setError(errorMessage);
+      notification.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Refetch when search term changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchTerm.length === 0 || searchTerm.length >= 2) {
+        fetchHCPs();
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const handleView = (hcp: HCP) => {
     setSelectedHCP(hcp);
@@ -145,7 +101,7 @@ const HCPList: React.FC = () => {
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
             <TextField
               fullWidth
-              placeholder="Search HCPs by name, specialty, organization, or city..."
+              placeholder="Search HCPs by name, specialization, hospital, or city..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               InputProps={{
@@ -156,49 +112,63 @@ const HCPList: React.FC = () => {
           </Box>
         </Paper>
 
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Specialty</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Organization</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>City</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Last Interaction</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Total Interactions</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredHCPs.map((hcp) => (
-                <TableRow key={hcp.id} hover>
-                  <TableCell sx={{ fontWeight: 500 }}>{hcp.name}</TableCell>
-                  <TableCell>{hcp.specialty}</TableCell>
-                  <TableCell>{hcp.organization}</TableCell>
-                  <TableCell>{hcp.city}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={hcp.status}
-                      color={hcp.status === 'active' ? 'success' : 'default'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>{hcp.lastInteraction}</TableCell>
-                  <TableCell>{hcp.totalInteractions}</TableCell>
-                  <TableCell>
-                    <IconButton size="small" onClick={() => handleView(hcp)}>
-                      <VisibilityIcon />
-                    </IconButton>
-                    <IconButton size="small">
-                      <EditIcon />
-                    </IconButton>
-                  </TableCell>
+        {error && (
+          <Fade in={true} timeout={400}>
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {error}
+            </Alert>
+          </Fade>
+        )}
+
+        {loading ? (
+          <LoadingSpinner message="Loading HCPs..." />
+        ) : (
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                  <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Specialization</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Hospital</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>City</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Phone</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {hcpList.length > 0 ? (
+                  hcpList.map((hcp) => (
+                    <Fade in={true} timeout={400} key={hcp.id}>
+                      <TableRow hover sx={{ '&:hover': { backgroundColor: '#f5f5f5' } }}>
+                        <TableCell sx={{ fontWeight: 500 }}>{hcp.doctor_name}</TableCell>
+                        <TableCell>{hcp.specialization}</TableCell>
+                        <TableCell>{hcp.hospital}</TableCell>
+                        <TableCell>{hcp.city}</TableCell>
+                        <TableCell>{hcp.email}</TableCell>
+                        <TableCell>{hcp.phone}</TableCell>
+                        <TableCell>
+                          <IconButton size="small" onClick={() => handleView(hcp)}>
+                            <VisibilityIcon />
+                          </IconButton>
+                          <IconButton size="small">
+                            <EditIcon />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    </Fade>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <Typography color="text.secondary">No HCPs found</Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
 
         <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
           <DialogTitle>HCP Details</DialogTitle>
@@ -206,22 +176,22 @@ const HCPList: React.FC = () => {
             {selectedHCP && (
               <Box sx={{ mt: 2 }}>
                 <Typography variant="h6" gutterBottom>
-                  {selectedHCP.name}
+                  {selectedHCP.doctor_name}
                 </Typography>
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="body2" color="text.secondary">
-                    Specialty
+                    Specialization
                   </Typography>
                   <Typography variant="body1" gutterBottom>
-                    {selectedHCP.specialty}
+                    {selectedHCP.specialization}
                   </Typography>
                 </Box>
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="body2" color="text.secondary">
-                    Organization
+                    Hospital
                   </Typography>
                   <Typography variant="body1" gutterBottom>
-                    {selectedHCP.organization}
+                    {selectedHCP.hospital}
                   </Typography>
                 </Box>
                 <Box sx={{ mt: 2 }}>
@@ -242,13 +212,11 @@ const HCPList: React.FC = () => {
                 </Box>
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="body2" color="text.secondary">
-                    Status
+                    City
                   </Typography>
-                  <Chip
-                    label={selectedHCP.status}
-                    color={selectedHCP.status === 'active' ? 'success' : 'default'}
-                    size="small"
-                  />
+                  <Typography variant="body1" gutterBottom>
+                    {selectedHCP.city}
+                  </Typography>
                 </Box>
               </Box>
             )}

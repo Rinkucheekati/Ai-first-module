@@ -1,6 +1,4 @@
-import axios from 'axios';
-
-const API_BASE_URL = (process.env.REACT_APP_API_URL as string) || 'http://localhost:8000';
+import apiClient from './apiClient';
 
 export interface InteractionCreate {
   hcp_id: number;
@@ -24,14 +22,12 @@ export interface Interaction {
 export const interactionApi = {
   async createInteraction(data: InteractionCreate): Promise<Interaction> {
     try {
-      const response = await axios.post<Interaction>(
-        `${API_BASE_URL}/interactions/`,
-        data
-      );
+      const response = await apiClient.post<Interaction>('/interactions/', data);
       return response.data;
     } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        throw new Error(error.response?.data?.detail || 'Failed to create interaction');
+      if (error instanceof Error && 'response' in error) {
+        const axiosError = error as any;
+        throw new Error(axiosError.response?.data?.detail || 'Failed to create interaction');
       }
       throw new Error('An unexpected error occurred');
     }
@@ -39,9 +35,9 @@ export const interactionApi = {
 
   async getInteractions(skip: number = 0, limit: number = 100): Promise<Interaction[]> {
     try {
-      const response = await axios.get<Interaction[]>(
-        `${API_BASE_URL}/interactions/?skip=${skip}&limit=${limit}`
-      );
+      const response = await apiClient.get<Interaction[]>('/interactions/', {
+        params: { skip, limit },
+      });
       return response.data;
     } catch (error: unknown) {
       throw new Error('Failed to fetch interactions');
@@ -50,7 +46,7 @@ export const interactionApi = {
 
   async getInteractionById(id: number): Promise<Interaction> {
     try {
-      const response = await axios.get<Interaction>(`${API_BASE_URL}/interactions/${id}`);
+      const response = await apiClient.get<Interaction>(`/interactions/${id}`);
       return response.data;
     } catch (error: unknown) {
       throw new Error('Failed to fetch interaction');
@@ -59,14 +55,12 @@ export const interactionApi = {
 
   async updateInteraction(id: number, data: Partial<InteractionCreate>): Promise<Interaction> {
     try {
-      const response = await axios.put<Interaction>(
-        `${API_BASE_URL}/interactions/${id}`,
-        data
-      );
+      const response = await apiClient.put<Interaction>(`/interactions/${id}`, data);
       return response.data;
     } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        throw new Error(error.response?.data?.detail || 'Failed to update interaction');
+      if (error instanceof Error && 'response' in error) {
+        const axiosError = error as any;
+        throw new Error(axiosError.response?.data?.detail || 'Failed to update interaction');
       }
       throw new Error('An unexpected error occurred');
     }
@@ -74,7 +68,7 @@ export const interactionApi = {
 
   async deleteInteraction(id: number): Promise<void> {
     try {
-      await axios.delete(`${API_BASE_URL}/interactions/${id}`);
+      await apiClient.delete(`/interactions/${id}`);
     } catch (error: unknown) {
       throw new Error('Failed to delete interaction');
     }

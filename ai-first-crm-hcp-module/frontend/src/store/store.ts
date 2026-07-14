@@ -3,6 +3,7 @@ import authReducer from './slices/authSlice';
 import hcpReducer from './slices/hcpSlice';
 import interactionReducer from './slices/interactionSlice';
 import agentReducer from './slices/agentSlice';
+import dashboardReducer from './slices/dashboardSlice';
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     hcp: hcpReducer,
     interaction: interactionReducer,
     agent: agentReducer,
+    dashboard: dashboardReducer,
   },
 });
 

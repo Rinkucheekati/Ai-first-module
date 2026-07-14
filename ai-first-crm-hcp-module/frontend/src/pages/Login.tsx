@@ -13,6 +13,7 @@ import {
 import { useDispatch } from 'react-redux';
 import { loginSuccess } from '../store/slices/authSlice';
 import { useNavigate } from 'react-router-dom';
+import { authService } from '../services/authService';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -28,26 +29,22 @@ const Login: React.FC = () => {
     setError('');
     setLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      if (email && password) {
-        dispatch(
-          loginSuccess({
-            user: {
-              id: '1',
-              name: 'John Doe',
-              email: email,
-              role: 'Sales Representative',
-            },
-            token: 'fake-jwt-token',
-          })
-        );
-        navigate('/dashboard');
-      } else {
-        setError('Please fill in all fields');
-      }
+    try {
+      const response = await authService.login(email, password);
+
+      dispatch(
+        loginSuccess({
+          user: response.user,
+          token: response.access_token,
+        })
+      );
+      navigate('/dashboard');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Login failed. Please try again.';
+      setError(errorMessage);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -89,6 +86,7 @@ const Login: React.FC = () => {
                 required
                 autoComplete="email"
                 autoFocus
+                disabled={loading}
               />
               <TextField
                 fullWidth
@@ -99,6 +97,7 @@ const Login: React.FC = () => {
                 margin="normal"
                 required
                 autoComplete="current-password"
+                disabled={loading}
               />
               <Button
                 type="submit"
@@ -114,7 +113,7 @@ const Login: React.FC = () => {
 
             <Box sx={{ mt: 3, textAlign: 'center' }}>
               <Typography variant="body2" color="text.secondary">
-                Demo: Enter any email and password to login
+                Use any email and password to login (demo mode)
               </Typography>
             </Box>
           </CardContent>

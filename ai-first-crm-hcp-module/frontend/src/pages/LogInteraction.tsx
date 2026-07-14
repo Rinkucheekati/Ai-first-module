@@ -23,6 +23,8 @@ import {
   CircularProgress,
   Divider,
   Grid,
+  Backdrop,
+  Fade,
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -31,11 +33,15 @@ import {
   AttachFile as AttachFileIcon,
   Save as SaveIcon,
   CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
 } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../store/store';
 import { sendMessage, clearResponse, clearError, updateFormData, resetFormData } from '../store/slices/agentSlice';
 import { interactionApi } from '../services/interactionApi';
+import TypingAnimation from '../components/common/TypingAnimation';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import { useNotification } from '../components/common/NotificationProvider';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -78,11 +84,11 @@ const LogInteraction: React.FC = () => {
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [isFormSubmitting, setIsFormSubmitting] = useState(false);
 
   const dispatch = useDispatch<AppDispatch>();
   const agent = useSelector((state: RootState) => state.agent);
+  const notification = useNotification();
 
   // Use Redux formData instead of local state
   const formData = agent.formData;
@@ -104,9 +110,14 @@ const LogInteraction: React.FC = () => {
   };
 
   const handleFormSubmit = async () => {
+    if (!formData.hcpId || !formData.date || !formData.notes) {
+      notification.warning('Please fill in required fields (HCP, Date, Notes)');
+      return;
+    }
+
+    setIsFormSubmitting(true);
     try {
-      // Find HCP ID from hcpName (simplified - in production, would use HCP API)
-      const hcpId = parseInt(formData.hcpId) || 1; // Default to 1 if not selected
+      const hcpId = parseInt(formData.hcpId) || 1;
       
       const interactionData = {
         hcp_id: hcpId,
@@ -118,15 +129,13 @@ const LogInteraction: React.FC = () => {
       
       await interactionApi.createInteraction(interactionData);
       
-      setSnackbarMessage('Interaction logged successfully!');
-      setSnackbarOpen(true);
-      
-      // Reset form after successful save
+      notification.success('Interaction logged successfully!', 5000);
       dispatch(resetFormData());
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to log interaction';
-      setSnackbarMessage(errorMessage);
-      setSnackbarOpen(true);
+      notification.error(errorMessage, 6000);
+    } finally {
+      setIsFormSubmitting(false);
     }
   };
 
@@ -152,13 +161,10 @@ const LogInteraction: React.FC = () => {
 
   const handleSave = () => {
     if (agent.currentResponse?.interaction_id) {
-      setSnackbarMessage('Interaction saved successfully!');
-      setSnackbarOpen(true);
+      notification.success('Interaction saved successfully!', 5000);
+    } else {
+      notification.warning('No data to save yet');
     }
-  };
-
-  const handleSnackbarClose = () => {
-    setSnackbarOpen(false);
   };
 
   const handleClearChat = () => {
@@ -319,21 +325,38 @@ const LogInteraction: React.FC = () => {
               />
             )}
 
-            <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+            <Box sx={{ display: 'flex', gap: 2, mt: 3, position: 'relative' }}>
               <Button
                 variant="contained"
                 size="large"
                 onClick={handleFormSubmit}
-                sx={{ borderRadius: 2 }}
+                disabled={isFormSubmitting}
+                sx={{
+                  borderRadius: 2,
+                  transition: 'all 0.3s ease-in-out',
+                  opacity: isFormSubmitting ? 0.7 : 1,
+                  minWidth: 150,
+                }}
               >
-                Log Interaction
+                {isFormSubmitting ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CircularProgress size={20} sx={{ color: 'inherit' }} />
+                    Saving...
+                  </Box>
+                ) : (
+                  'Log Interaction'
+                )}
               </Button>
               {agent.hasExtractedData && (
                 <Button
                   variant="outlined"
                   size="large"
                   onClick={handleResetForm}
-                  sx={{ borderRadius: 2 }}
+                  disabled={isFormSubmitting}
+                  sx={{
+                    borderRadius: 2,
+                    transition: 'all 0.3s ease-in-out',
+                  }}
                 >
                   Reset Form
                 </Button>
@@ -358,26 +381,96 @@ const LogInteraction: React.FC = () => {
                 p: 2,
                 backgroundColor: '#f5f5f5',
                 borderRadius: 2,
+                transition: 'all 0.3s ease-in-out',
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  background: '#f1f1f1',
+                  borderRadius: '4px',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  background: '#888',
+                  borderRadius: '4px',
+                  '&:hover': {
+                    background: '#555',
+                  },
+                },
               }}
             >
               {messages.map((message) => (
-                <Box
-                  key={message.id}
-                  sx={{
-                    display: 'flex',
-                    justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
-                    mb: 2,
-                  }}
-                >
+                <Fade in={true} timeout={400} key={message.id}>
                   <Box
                     sx={{
-                      maxWidth: '70%',
                       display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 1,
+                      justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
+                      mb: 2,
+                      animation: 'slideInMessage 0.3s ease-out',
                     }}
                   >
-                    {message.sender === 'ai' && (
+                    <Box
+                      sx={{
+                        maxWidth: '70%',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 1,
+                      }}
+                    >
+                      {message.sender === 'ai' && (
+                        <Box
+                          sx={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: '50%',
+                            backgroundColor: '#e3f2fd',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <SmartToyIcon sx={{ fontSize: 18, color: '#1976d2' }} />
+                        </Box>
+                      )}
+                      <Box
+                        sx={{
+                          backgroundColor: message.sender === 'user' ? '#1976d2' : 'white',
+                          color: message.sender === 'user' ? 'white' : 'text.primary',
+                          p: 2,
+                          borderRadius: 2,
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                          transition: 'all 0.3s ease-in-out',
+                          '&:hover': {
+                            boxShadow: '0 4px 8px rgba(0,0,0,0.15)',
+                          },
+                        }}
+                      >
+                        <Typography variant="body2">{message.text}</Typography>
+                      </Box>
+                      {message.sender === 'user' && (
+                        <Box
+                          sx={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: '50%',
+                            backgroundColor: '#e8f5e9',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <PersonIcon sx={{ fontSize: 18, color: '#2e7d32' }} />
+                        </Box>
+                      )}
+                    </Box>
+                  </Box>
+                </Fade>
+              ))}
+              {agent.isLoading && (
+                <Fade in={true} timeout={400}>
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Box
                         sx={{
                           width: 32,
@@ -387,77 +480,31 @@ const LogInteraction: React.FC = () => {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          flexShrink: 0,
                         }}
                       >
                         <SmartToyIcon sx={{ fontSize: 18, color: '#1976d2' }} />
                       </Box>
-                    )}
-                    <Box
-                      sx={{
-                        backgroundColor: message.sender === 'user' ? '#1976d2' : 'white',
-                        color: message.sender === 'user' ? 'white' : 'text.primary',
-                        p: 2,
-                        borderRadius: 2,
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                      }}
-                    >
-                      <Typography variant="body2">{message.text}</Typography>
-                    </Box>
-                    {message.sender === 'user' && (
                       <Box
                         sx={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: '50%',
-                          backgroundColor: '#e8f5e9',
+                          backgroundColor: 'white',
+                          p: 2,
+                          borderRadius: 2,
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                          minWidth: 100,
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
                         }}
                       >
-                        <PersonIcon sx={{ fontSize: 18, color: '#2e7d32' }} />
+                        <TypingAnimation variant="dots" size="small" />
                       </Box>
-                    )}
-                  </Box>
-                </Box>
-              ))}
-              {isTyping && (
-                <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box
-                      sx={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: '50%',
-                        backgroundColor: '#e3f2fd',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <SmartToyIcon sx={{ fontSize: 18, color: '#1976d2' }} />
-                    </Box>
-                    <Box
-                      sx={{
-                        backgroundColor: 'white',
-                        p: 2,
-                        borderRadius: 2,
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        AI is typing...
-                      </Typography>
                     </Box>
                   </Box>
-                </Box>
+                </Fade>
               )}
             </Box>
 
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 2 }}>
-              <IconButton>
+              <IconButton disabled={agent.isLoading}>
                 <AttachFileIcon />
               </IconButton>
               <TextField
@@ -466,7 +513,7 @@ const LogInteraction: React.FC = () => {
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && !agent.isLoading && inputMessage.trim()) {
                     handleSendMessage();
                   }
                 }}
@@ -474,6 +521,10 @@ const LogInteraction: React.FC = () => {
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
+                    transition: 'all 0.2s ease-in-out',
+                    '&.Mui-disabled': {
+                      opacity: 0.6,
+                    },
                   },
                 }}
               />
@@ -481,20 +532,55 @@ const LogInteraction: React.FC = () => {
                 variant="contained"
                 onClick={handleSendMessage}
                 disabled={agent.isLoading || !inputMessage.trim()}
-                sx={{ borderRadius: 2, minWidth: 'auto' }}
+                sx={{
+                  borderRadius: 2,
+                  minWidth: 'auto',
+                  transition: 'all 0.3s ease-in-out',
+                  '&:disabled': {
+                    opacity: 0.5,
+                  },
+                }}
               >
-                {agent.isLoading ? <CircularProgress size={24} /> : <SendIcon />}
+                {agent.isLoading ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <CircularProgress size={20} sx={{ color: 'inherit' }} />
+                  </Box>
+                ) : (
+                  <SendIcon />
+                )}
               </Button>
             </Box>
 
             {agent.error && (
-              <Alert severity="error" sx={{ mb: 2 }} onClose={() => dispatch(clearError())}>
-                {agent.error}
-              </Alert>
+              <Fade in={true} timeout={400}>
+                <Alert
+                  severity="error"
+                  sx={{
+                    mb: 2,
+                    animation: 'slideInMessage 0.3s ease-out',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
+                  onClose={() => dispatch(clearError())}
+                  icon={<ErrorIcon />}
+                >
+                  {agent.error}
+                </Alert>
+              </Fade>
             )}
 
             {agent.structuredData && (
-              <Paper sx={{ p: 3, mt: 3, backgroundColor: '#f5f5f5' }}>
+              <Fade in={true} timeout={500}>
+                <Paper
+                  sx={{
+                    p: 3,
+                    mt: 3,
+                    backgroundColor: '#f5f5f5',
+                    transition: 'all 0.3s ease-in-out',
+                    animation: 'slideInMessage 0.4s ease-out',
+                  }}
+                >
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Extracted Information
@@ -606,13 +692,23 @@ const LogInteraction: React.FC = () => {
                 </Grid>
                 {agent.currentResponse?.interaction_id && (
                   <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #e0e0e0' }}>
-                    <Typography variant="body2" color="success.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography
+                      variant="body2"
+                      color="success.main"
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        animation: 'slideIn 0.3s ease-out',
+                      }}
+                    >
                       <CheckCircleIcon fontSize="small" />
                       Interaction ID: {agent.currentResponse.interaction_id}
                     </Typography>
                   </Box>
                 )}
               </Paper>
+            </Fade>
             )}
 
             <Box sx={{ mt: 3, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -625,16 +721,39 @@ const LogInteraction: React.FC = () => {
         </TabPanel>
       </Container>
 
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={4000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      <Backdrop
+        sx={{
+          color: '#fff',
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.1)',
+        }}
+        open={agent.isLoading && tabValue === 0}
       >
-        <Alert onClose={handleSnackbarClose} severity="success" sx={{ width: '100%' }}>
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
+        <LoadingSpinner message="Processing your interaction..." size="large" />
+      </Backdrop>
+
+      <style>{`
+        @keyframes slideInMessage {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateX(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+      `}</style>
     </Box>
   );
 };

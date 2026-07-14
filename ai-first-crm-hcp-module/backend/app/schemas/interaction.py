@@ -35,3 +35,20 @@ class InteractionResponse(InteractionBase):
 class InteractionListResponse(BaseModel):
     interactions: list[InteractionResponse]
     total: int
+
+
+class InteractionHistoryItem(BaseModel):
+    id: int
+    hcp_id: int
+    doctor: str
+    hospital: str
+    interaction_date: datetime
+    discussion: str
+    summary: Optional[str] = None
+    follow_up_date: Optional[datetime] = None
+    status: str
+
+
+class InteractionHistoryResponse(BaseModel):
+    interactions: list[InteractionHistoryItem]
+    total: int

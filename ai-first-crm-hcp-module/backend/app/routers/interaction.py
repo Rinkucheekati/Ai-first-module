@@ -2,10 +2,53 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.database import get_db
-from app.schemas.interaction import InteractionCreate, InteractionUpdate, InteractionResponse, InteractionListResponse
+from datetime import datetime, time, timedelta
+
+from app.schemas.interaction import (
+    InteractionCreate,
+    InteractionUpdate,
+    InteractionResponse,
+    InteractionListResponse,
+    InteractionHistoryItem,
+    InteractionHistoryResponse,
+)
 from app.services.interaction_service import InteractionService
 
 router = APIRouter(prefix="/interactions", tags=["Interactions"])
+
+
+@router.get("/history", response_model=InteractionHistoryResponse)
+def get_interaction_history(db: Session = Depends(get_db)):
+    """Return interaction history with HCP details for the data-grid view."""
+    now = datetime.now()
+    start_of_today = datetime.combine(now.date(), time.min)
+    start_of_tomorrow = start_of_today + timedelta(days=1)
+    rows = InteractionService(db).get_interaction_history()
+
+    def status_for(follow_up_date):
+        if not follow_up_date:
+            return "No follow-up"
+        if follow_up_date < start_of_today:
+            return "Overdue"
+        if follow_up_date < start_of_tomorrow:
+            return "Due today"
+        return "Scheduled"
+
+    interactions = [
+        InteractionHistoryItem(
+            id=interaction.id,
+            hcp_id=interaction.hcp_id,
+            doctor=doctor_name,
+            hospital=hospital,
+            interaction_date=interaction.interaction_date,
+            discussion=interaction.discussion,
+            summary=interaction.summary,
+            follow_up_date=interaction.follow_up_date,
+            status=status_for(interaction.follow_up_date),
+        )
+        for interaction, doctor_name, hospital in rows
+    ]
+    return InteractionHistoryResponse(interactions=interactions, total=len(interactions))
 
 
 @router.get("", response_model=InteractionListResponse)

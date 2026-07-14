@@ -1,6 +1,4 @@
-import axios from 'axios';
-
-const API_BASE_URL = (process.env.REACT_APP_API_URL as string) || 'http://localhost:8000';
+import apiClient from './apiClient';
 
 export interface AgentChatRequest {
   message: string;
@@ -31,14 +29,15 @@ export interface AgentChatResponse {
 export const agentApi = {
   async chat(request: AgentChatRequest): Promise<AgentChatResponse> {
     try {
-      const response = await axios.post<AgentChatResponse>(
-        `${API_BASE_URL}/agent/chat`,
+      const response = await apiClient.post<AgentChatResponse>(
+        '/agent/chat',
         request
       );
       return response.data;
     } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        throw new Error(error.response?.data?.detail || 'Failed to communicate with agent');
+      if (error instanceof Error && 'response' in error) {
+        const axiosError = error as any;
+        throw new Error(axiosError.response?.data?.detail || 'Failed to communicate with agent');
       }
       throw new Error('An unexpected error occurred');
     }
@@ -46,7 +45,7 @@ export const agentApi = {
 
   async healthCheck(): Promise<{ status: string; service: string; groq_available: boolean; model?: string }> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/agent/health`);
+      const response = await apiClient.get('/agent/health');
       return response.data;
     } catch (error) {
       throw new Error('Agent health check failed');

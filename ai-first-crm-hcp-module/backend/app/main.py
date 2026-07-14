@@ -1,9 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.routers import hcp_router, interaction_router
+from app.routers import hcp_router, interaction_router, auth_router
 from app.routers.agent import router as agent_router
+from app.routers.dashboard import router as dashboard_router
 from app.database import Base, engine
+# Import models to register them with Base.metadata
+from app.models import HCP, Interaction
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -27,9 +30,11 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth_router)
 app.include_router(hcp_router)
 app.include_router(interaction_router)
 app.include_router(agent_router)
+app.include_router(dashboard_router)
 
 
 @app.get("/")

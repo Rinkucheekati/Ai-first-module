@@ -11,6 +11,7 @@ import LogInteraction from './pages/LogInteraction';
 import InteractionHistory from './pages/InteractionHistory';
 import Sidebar from './components/layout/Sidebar';
 import Navbar from './components/layout/Navbar';
+import NotificationProvider from './components/common/NotificationProvider';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isAuthenticated = localStorage.getItem('token') !== null;
@@ -28,39 +29,41 @@ const App: React.FC = () => {
     <Provider store={store}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Router>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/*"
-              element={
-                <ProtectedRoute>
-                  <Box sx={{ display: 'flex' }}>
-                    <Navbar onMenuClick={handleDrawerToggle} />
-                    <Sidebar open={mobileOpen} onClose={handleDrawerToggle} />
-                    <Box
-                      component="main"
-                      sx={{
-                        flexGrow: 1,
-                        p: 3,
-                        width: { sm: `calc(100% - 260px)` },
-                        mt: '64px',
-                      }}
-                    >
-                      <Routes>
-                        <Route path="/dashboard" element={<Dashboard />} />
-                        <Route path="/hcp-list" element={<HCPList />} />
-                        <Route path="/log-interaction" element={<LogInteraction />} />
-                        <Route path="/interaction-history" element={<InteractionHistory />} />
-                        <Route path="/" element={<Navigate to="/dashboard" />} />
-                      </Routes>
+        <NotificationProvider>
+          <Router>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route
+                path="/*"
+                element={
+                  <ProtectedRoute>
+                    <Box sx={{ display: 'flex' }}>
+                      <Navbar onMenuClick={handleDrawerToggle} />
+                      <Sidebar open={mobileOpen} onClose={handleDrawerToggle} />
+                      <Box
+                        component="main"
+                        sx={{
+                          flexGrow: 1,
+                          p: 3,
+                          width: { sm: `calc(100% - 260px)` },
+                          mt: '64px',
+                        }}
+                      >
+                        <Routes>
+                          <Route path="/dashboard" element={<Dashboard />} />
+                          <Route path="/hcp-list" element={<HCPList />} />
+                          <Route path="/log-interaction" element={<LogInteraction />} />
+                          <Route path="/interaction-history" element={<InteractionHistory />} />
+                          <Route path="/" element={<Navigate to="/dashboard" />} />
+                        </Routes>
+                      </Box>
                     </Box>
-                  </Box>
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </Router>
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </Router>
+        </NotificationProvider>
       </ThemeProvider>
     </Provider>
   );
